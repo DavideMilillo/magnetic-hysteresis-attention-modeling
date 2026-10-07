@@ -14,9 +14,9 @@ addpath(fullfile(repo_root, 'models', 'layers'));
 
 
 %% ============================================================
-%  1. ACQUISIZIONE DATASET GLOBALE
+%  1. DATASET ACQUISITION
 % ============================================================
-fprintf('Generazione dataset globale tramite hysteresis_training...\n');
+fprintf('Generating global dataset via hysteresis_training...\n');
 [train_curves, test_curves] = hysteresis_training();
 
 %% ============================================================
@@ -89,7 +89,7 @@ dsVal   = create_tft_multi_input_datastore(M_past(:, :, val_idx), u_past(:, :, v
 fprintf('Split TFT -> training: %d sequenze | validation: %d sequenze\n', numel(train_idx), numel(val_idx));
 
 %% ============================================================
-%  3. ARCHITETTURA TFT E TRAINING
+%  3. TFT ARCHITECTURE & TRAINING
 % ============================================================
 
 inputNames = ["M", "u", "du_dt", "tipo", "A1", "A2", "dummy"];
@@ -237,18 +237,18 @@ if ~isempty(trainedNet)
         
         mean_r2 = mean([results_tft(idx_type).r2], 'omitnan');
         mean_area_err = mean([results_tft(idx_type).area_err_pct], 'omitnan');
-        fprintf('%-13s | R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+        fprintf('%-13s | Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
             type_name, mean_r2, mean_area_err);
     end
     
     fprintf('\n--- In-Domain Average (Types 1, 5, 6, 7) ---\n');
     in_domain_types = {'Multi-Sine', 'Concentric Loops', 'FORC', 'Dense Minor Loops'};
     idx_in = find(ismember({results_tft.type_name}, in_domain_types));
-    fprintf('R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+    fprintf('Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
             mean([results_tft(idx_in).r2], 'omitnan'), mean([results_tft(idx_in).area_err_pct], 'omitnan'));
             
     fprintf('\n--- Extended Average (All Types) ---\n');
-    fprintf('R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+    fprintf('Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
             mean([results_tft.r2], 'omitnan'), mean([results_tft.area_err_pct], 'omitnan'));
 
     timestamp = datestr(now, 'yyyymmdd_HHMM');
@@ -269,10 +269,10 @@ if ~isempty(trainedNet)
                 results_tft(test_id).area_err_pct, results_tft(test_id).coercive_err);
         end
         fprintf(fid, '\n--- In-Domain Average (Types 1, 5, 6, 7) ---\n');
-        fprintf(fid, 'R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+        fprintf(fid, 'Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
                 mean([results_tft(idx_in).r2], 'omitnan'), mean([results_tft(idx_in).area_err_pct], 'omitnan'));
         fprintf(fid, '\n--- Extended Average (All Types) ---\n');
-        fprintf(fid, 'R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+        fprintf(fid, 'Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
                 mean([results_tft.r2], 'omitnan'), mean([results_tft.area_err_pct], 'omitnan'));
         fclose(fid);
     end
@@ -286,7 +286,7 @@ if ~isempty(trainedNet)
 end
 
 %% ============================================================
-%  FUNZIONI LOCALI DI SUPPORTO
+%  LOCAL HELPER FUNCTIONS DI SUPPORTO
 % ============================================================
 
 function [X_past, X_fut, X_stat, Y_tgt] = create_tft_sequences(u, du_dt, M, tipo, A1, A2, w_size, p_horizon, stride)

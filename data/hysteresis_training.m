@@ -1,20 +1,20 @@
 function [train_curves, test_curves] = hysteresis_training()
-    % HYSTERESIS_TRAINING Genera il dataset globale per l'addestramento LSTM e TFT
-    % Training (40 curve): 10x tipo1, 10x Tipo 5, 10x Tipo 6 (5 up, 5 down), 10x Tipo 7
-    % Test (7 curve): 1x per tipo da 1 a 7 per verificare la generalizzazione
+    % HYSTERESIS_TRAINING Generates the global dataset for sequence model training and benchmarking.
+    % Training Set (40 curves): 10x Multi-Sine, 10x Concentric Loops, 10x FORC (5 top, 5 bottom), 10x Dense Minor Loops.
+    % Test Set (7 curves): 1x per excitation type (1 through 7) to evaluate in-domain and out-of-domain generalization.
     
-    fprintf('\n=== GENERAZIONE DATASET PREISACH (TRAINING + TEST) ===\n');
+    fprintf('\n=== PREISACH DATASET GENERATION (TRAINING + TEST) ===\n');
     
-    rng(42, 'twister'); % Per riproducibilità
+    rng(42, 'twister'); % For strict reproducibility
     
-    % Parametri temporali globali
-    T       = 0.7;      % Periodo fondamentale [s]
-    f1      = 1 / T;    % Frequenza fondamentale [Hz]
-    t_final = 4 * T;    % Durata simulazione [s]
+    % Global temporal parameters
+    T       = 0.7;      % Fundamental period [s]
+    f1      = 1 / T;    % Fundamental frequency [Hz]
+    t_final = 4 * T;    % Total simulation duration [s]
     n_time_points = 2000; 
     dt      = t_final / (n_time_points - 1);
     
-    %% 1. GRIGLIA DI PREISACH
+    %% 1. Preisach Discretization Grid
     mu     = @(alpha, beta) exp(-(alpha.^2 + beta.^2)) .* (alpha >= beta);
     N_grid = 101;
     alpha  = linspace(-1, 1, N_grid);
@@ -23,18 +23,18 @@ function [train_curves, test_curves] = hysteresis_training()
     P = mu(Alpha, Beta);
     P(Alpha <= Beta) = 0;
     
-    %% 2. GENERAZIONE TRAINING SET (40 Curve)
-    fprintf('\n--- Generazione Training Dataset (40 Curve: Tipi 1, 5, 6, 7) ---\n');
+    %% 2. Generate Training Set (40 Curves)
+    fprintf('\n--- Generating Training Dataset (40 Curves: Types 1, 5, 6, 7) ---\n');
     train_curves = [];
     
-    % --- 10 curve Tipo 1 (Multi-Sine) ---
+    % --- 10 Curves: Type 1 (Multi-Sine) ---
     for i = 1:10
         cfg = struct('type', 1, 'A1', 0.75 + 0.25*rand(), 'A2', 0.15 + 0.35*rand(), ...
             'f2_ratio', randi([3, 7]), 'phi', rand()*2*pi, 'tau', NaN, 'step_levels', []);
         train_curves = [train_curves, generate_single_curve(cfg, f1, t_final, dt, Alpha, Beta, P, alpha)];
     end
 
-    % --- 10 curve Tipo 5 (Concentric Loops) ---
+    % --- 10 Curves: Type 5 (Concentric Loops) ---
     for i = 1:10
         cfg = struct('type', 5, 'A1', 1, 'A2', 0, 'f2_ratio', 1, 'phi', 0, 'tau', NaN, 'step_levels', []);
         cfg.concentric_cycles = randi([3, 7]);
@@ -43,7 +43,7 @@ function [train_curves, test_curves] = hysteresis_training()
         train_curves = [train_curves, generate_single_curve(cfg, f1, t_final, dt, Alpha, Beta, P, alpha)];
     end
     
-    % --- 10 curve Tipo 6 (FORC: 5 Up, 5 Down) ---
+    % --- 10 Curves: Type 6 (FORC: 5 Up, 5 Down) ---
     for i = 1:10
         cfg = struct('type', 6, 'A1', 1, 'A2', 0, 'f2_ratio', 1, 'phi', 0, 'tau', NaN, 'step_levels', []);
         cfg.forc_steps = 8;
@@ -55,7 +55,7 @@ function [train_curves, test_curves] = hysteresis_training()
         train_curves = [train_curves, generate_single_curve(cfg, f1, t_final, dt, Alpha, Beta, P, alpha)];
     end
     
-    % --- 10 curve Tipo 7 (Dense Minor Loops) ---
+    % --- 10 Curves: Type 7 (Dense Minor Loops) ---
     for i = 1:10
         cfg = struct('type', 7, 'A1', 1.0, 'A2', 0, 'f2_ratio', 1, 'phi', rand()*2*pi, 'tau', NaN, 'step_levels', []);
         cfg.dense_f_ratios = 13 + (31-13)*rand(); 
@@ -63,15 +63,15 @@ function [train_curves, test_curves] = hysteresis_training()
         train_curves = [train_curves, generate_single_curve(cfg, f1, t_final, dt, Alpha, Beta, P, alpha)];
     end
     
-    %% 3. GENERAZIONE TEST SET (7 Curve)
-    fprintf('\n--- Generazione Test Dataset (7 Curve: Tipi 1-7) ---\n');
+    %% 3. Generate Test Set (7 Curves)
+    fprintf('\n--- Generating Test Dataset (7 Curves: Types 1-7) ---\n');
     test_curves = [];
     for t_type = 1:7
         cfg = build_test_cfg(t_type, T, f1);
         test_curves = [test_curves, generate_single_curve(cfg, f1, t_final, dt, Alpha, Beta, P, alpha)];
     end
     
-    fprintf('Generazione completata: %d train, %d test.\n', numel(train_curves), numel(test_curves));
+    fprintf('Dataset generation completed: %d train curves, %d test curves.\n', numel(train_curves), numel(test_curves));
 end
 
 function curve = generate_single_curve(cfg, f1, t_final, dt, Alpha, Beta, P, alpha)
@@ -110,7 +110,6 @@ function [u, M, t] = simulate_preisach(cfg, f1, t_final, dt, Alpha, Beta, P, alp
             for A = A_vals, turning_points = [turning_points, A, -A, A]; end
             u = interpolate_points(turning_points, t);
         case 6 % FORC
-            % Sequenza di inversioni
             u_r_values = linspace(0.9, -0.9, cfg.forc_steps);
             turning_points = [];
             if strcmp(cfg.forc_direction, 'top')
@@ -125,7 +124,7 @@ function [u, M, t] = simulate_preisach(cfg, f1, t_final, dt, Alpha, Beta, P, alp
     
     u = u / (max(abs(u)) + 1e-9); 
     
-    % Simulazione Preisach
+    % Preisach numerical simulation
     S = -ones(size(P));
     if cfg.type == 5, S(Alpha + Beta <= 0) = 1; end 
     M = zeros(size(t));
@@ -154,5 +153,5 @@ end
 
 function name = get_excitation_name(type)
     names = {'Multi-Sine', 'Damped Sine', 'Stepwise', 'Triangular', 'Concentric Loops', 'FORC', 'Dense Minor Loops'};
-    if type >= 1 && type <= 7, name = names{type}; else, name = 'Sconosciuta'; end
+    if type >= 1 && type <= 7, name = names{type}; else, name = 'Unknown'; end
 end

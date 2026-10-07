@@ -13,13 +13,13 @@ addpath(fullfile(repo_root, 'models', 'layers'));
 
 
 %% ============================================================
-%  1. ACQUISIZIONE DATASET GLOBALE
+%  1. DATASET ACQUISITION
 % ============================================================
-fprintf('Generazione dataset globale tramite hysteresis_training...\n');
+fprintf('Generating global dataset via hysteresis_training...\n');
 [train_curves, test_curves] = hysteresis_training();
 
 %% ============================================================
-%  2. PREPARAZIONE SEQUENZE
+%  2. SEQUENCE PREPARATION
 % ============================================================
 fprintf('\n=== PREPARAZIONE DATI ENC-SELFATTN ===\n');
 
@@ -56,21 +56,21 @@ X_val_cell   = X_all_cell(val_idx);
 Y_val_mat    = Y_all_mat(val_idx, :);
 
 %% ============================================================
-%  3. ARCHITETTURA BAHDANAU ATTENTION E TRAINING
+%  3. ENC-SELFATTN ARCHITECTURE & TRAINING
 % ============================================================
 
 input_size = 3; 
 
-% Per emulare l'attention additiva di Bahdanau in un setup 1-step feedforward
-% Utilizziamo un Encoder LSTM layer (in modalità sequence) 
-% concatenandolo all'attention integrato
+% Encoder Self-Attention (Enc-SelfAttn) architecture
+% LSTM Encoder (64 units) processes input sequence 
+% Self-Attention layer dynamically weights latent encoder states
 lgraph = layerGraph();
 
 lgraph = addLayers(lgraph, sequenceInputLayer(input_size, 'Name', 'input'));
 lgraph = addLayers(lgraph, lstmLayer(64, 'OutputMode', 'sequence', 'Name', 'encoder_lstm'));
-% Manda l'intero output di sequenza all'Attention Layer
+% Pass latent states to Attention Layer
 lgraph = addLayers(lgraph, selfAttentionLayer(1, 64, 'Name', 'attention_enc'));
-% Un decoder LSTM per compattare / estrarre 1-step output final
+% LSTM Decoder (32 units) extracts 1-step output
 lgraph = addLayers(lgraph, lstmLayer(32, 'OutputMode', 'last', 'Name', 'decoder_lstm'));
 lgraph = addLayers(lgraph, fullyConnectedLayer(1, 'Name', 'fc_out'));
 lgraph = addLayers(lgraph, regressionLayer('Name', 'regression'));
@@ -94,7 +94,7 @@ fprintf('\n=== ADDESTRAMENTO MODELLO ENC-SELFATTN ===\n');
 net = trainNetwork(X_train_cell, Y_train_mat, lgraph, options);
 
 %% ============================================================
-%  4. INFERENZA CLOSED-LOOP
+%  4. CLOSED-LOOP AUTOREGRESSIVE INFERENCE
 % ============================================================
 fprintf('\n=== GLOBAL TEST EVALUATION (ENC-SELFATTN, CLOSED LOOP) ===\n');
 fprintf('%-5s %-13s %-10s %-10s %-8s %-12s %-12s\n', ...
@@ -186,24 +186,24 @@ for i = 1:numel(unique_types)
     
     mean_r2 = mean([results(idx_type).r2], 'omitnan');
     mean_area_err = mean([results(idx_type).area_err_pct], 'omitnan');
-    fprintf('%-13s | R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+    fprintf('%-13s | Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
         type_name, mean_r2, mean_area_err);
 end
 
 fprintf('\n--- In-Domain Average (Types 1, 5, 6, 7) ---\n');
 in_domain_types = {'Multi-Sine', 'Concentric Loops', 'FORC', 'Dense Minor Loops'};
 idx_in = find(ismember({results.type_name}, in_domain_types));
-fprintf('R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+fprintf('Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
         mean([results(idx_in).r2], 'omitnan'), mean([results(idx_in).area_err_pct], 'omitnan'));
         
 fprintf('\n--- Extended Average (All Types) ---\n');
-fprintf('R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+fprintf('Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
         mean([results.r2], 'omitnan'), mean([results.area_err_pct], 'omitnan'));
 
 txt_filename = fullfile(save_folder, ['summary_Enc-SelfAttn_' timestamp '.txt']);
 fid = fopen(txt_filename, 'w');
 if fid ~= -1
-    fprintf(fid, '=== RIEPILOGO PERFORMANCE BAHDANAU (%s) ===\n\n', datestr(now));
+    fprintf(fid, '=== ENC-SELFATTN PERFORMANCE SUMMARY (%s) ===\n\n', datestr(now));
     fprintf(fid, '%-5s %-13s %-10s %-10s %-8s %-12s %-12s\n', ...
         'ID', 'Type', 'RMSE', 'MAE', 'R^2', 'Area Err %', 'CoerciveErr');
     for test_id = 1:numel(results)
@@ -213,16 +213,16 @@ if fid ~= -1
             results(test_id).area_err_pct, results(test_id).coercive_err);
     end
     fprintf(fid, '\n--- In-Domain Average (Types 1, 5, 6, 7) ---\n');
-    fprintf(fid, 'R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+    fprintf(fid, 'Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
             mean([results(idx_in).r2], 'omitnan'), mean([results(idx_in).area_err_pct], 'omitnan'));
     fprintf(fid, '\n--- Extended Average (All Types) ---\n');
-    fprintf(fid, 'R^2 medio = %.4f | Errore area medio = %.2f%%\n', ...
+    fprintf(fid, 'Mean R^2 = %.4f | Mean Area Error = %.2f%%\n', ...
             mean([results.r2], 'omitnan'), mean([results.area_err_pct], 'omitnan'));
     fclose(fid);
 end
 
 %% ============================================================
-%  FUNZIONI LOCALI
+%  LOCAL HELPER FUNCTIONS
 % ============================================================
 function [X, Y] = create_sequences(u, du_dt, M, window_size, sequence_stride)
     start_indices = 1:sequence_stride:(length(u) - window_size);

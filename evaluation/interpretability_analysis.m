@@ -1,12 +1,12 @@
-% Script standalone per visualizzare mappe di attenzione (importanza temporale)
-% per i modelli attention-based senza modificare gli script originali.
+% Standalone script for occlusion-based temporal sensitivity analysis
+% and attention peak alignment with magnetic reversal points.
 % Nota: per mantenere la riproducibilita dei vecchi risultati, train_Enc_SelfAttn.m,
 % train_SelfAttn_LSTM.m e train_TFT.m non vengono alterati.
 
 clear; close all; clc;
 
 %% ============================================================
-%  1) CONFIGURAZIONE
+%  1) CONFIGURATION
 % ============================================================
 window_size = 70;
 sequence_stride = 20;
@@ -38,12 +38,12 @@ end
 rng(42, 'twister');
 
 %% ============================================================
-%  2) DATASET GLOBALE
+%  2) GLOBAL DATASET
 % ============================================================
-fprintf('Generazione dataset globale tramite hysteresis_training...\n');
+fprintf('Generating global dataset via hysteresis_training...\n');
 [train_curves, test_curves] = hysteresis_training();
 
-fprintf('Preparazione sequenze train/validation...\n');
+fprintf('Preparing train/validation sequences...\n');
 [X_all_cell, Y_all_mat] = build_all_sequences(train_curves, window_size, sequence_stride);
 
 n_total = numel(X_all_cell);
